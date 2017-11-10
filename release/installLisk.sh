@@ -24,6 +24,28 @@ DEFAULT_RELEASE=main
 DEFAULT_SYNC=no
 LOG_FILE=installLisk.out
 
+# Set file paths for downloading
+# These are generic file names
+FULL_INSTALL_TAR="lisk-$UNAME.tar.gz"
+LISKY_TAR="lisky-$UNAME.tar.gz"
+MAINNET_TAR="lisk-mainnet-$UNAME.tar.gz"
+NODEJS_TAR="node-$UNAME.tar.gz"
+PM2_TAR="pm2-$UNAME.tar.gz"
+POSTGRESQL_TAR="postgresql-$UNAME.tar.gz"
+REDIS_TAR="redis-$UNAME.tar.gz"
+TESTNET_TAR="lisk-testnet-$UNAME.tar.gz"
+
+# Set FTP Paths
+# Used for new FTP paths, with base path
+FULL_INSTALL_PATH="lisk/"
+LISKY_PATH="lisk/lisky/"
+MAINNET_PATH="lisk/mainnet/"
+NODEJS_PATH="lisk/nodejs/"
+PM2_PATH="lisk/pm2/"
+POSTGRESQL_PATH="lisk/postgresql/"
+REDIS_PATH="lisk/redis/"
+TESTNET_PATH="lisk/testnet/"
+
 # Setup logging
 exec > >(tee -ia $LOG_FILE)
 exec 2>&1
@@ -40,7 +62,7 @@ fi
 
 prereq_checks() {
 	echo -e "Checking prerequisites:"
-
+# Remove the tabbing and colours, or set them with variable instead
 	if [ -x "$(command -v curl)" ]; then
 		echo -e "curl is installed.\t\t\t\t\t$(tput setaf 2)Passed$(tput sgr0)"
 	else
@@ -98,21 +120,22 @@ user_prompts() {
 		echo "$LISK_LOCATION is not valid, please check and re-execute"
 		exit 2;
 	fi
-
+# Rename var maybe, maybe set boolean for TEST or MAIN or BOTH
 	[ "$RELEASE" ] || read -r -p "Would you like to install the Main or Test Client? (Default $DEFAULT_RELEASE): " RELEASE
 	RELEASE=${RELEASE:-$DEFAULT_RELEASE}
-	if [[ ! "$RELEASE" == "main" && ! "$RELEASE" == "test" && ! "$RELEASE" == "dev" ]]; then
+	if [[ ! "$RELEASE" == "main" && ! "$RELEASE" == "test" && ! "$RELEASE" == "both" ]]; then
 		echo "$RELEASE is not valid, please check and re-execute"
 		exit 2;
 	fi
-
+# Remove this
 	[ "$SYNC" ] || read -r -p "Would you like to synchronize from the Genesis Block? (Default $DEFAULT_SYNC): " SYNC
 	SYNC=${SYNC:-$DEFAULT_SYNC}
 	if [[ ! "$SYNC" == "no" && ! "$SYNC" == "yes" ]]; then
 		echo "$SYNC is not valid, please check and re-execute"
 		exit 2;
 	fi
-	LISK_INSTALL="$LISK_LOCATION"'/lisk-'"$RELEASE"
+	LISK_INSTALL="$LISK_LOCATION"'/lisk'
+	mkdir -p -m700 "$LISK_INSTALL"
 }
 
 ntp_checks() {
@@ -188,43 +211,39 @@ ntp_checks() {
 	fi # End NTP Checks
 }
 
-download_lisk() {
-	LISK_VERSION=lisk-$UNAME.tar.gz
+download_component() {
+	cd "$LISK_INSTALL" || exit 2
+	# Make $vars into actual vars for readability
 
-	LISK_DIR=$(echo "$LISK_VERSION" | cut -d'.' -f1)
+	echo -e "Downloading $2"
+	curl --progress-bar -o "$2" "https://downloads.liskwallet.net/$1/$2"
 
-	rm -f "$LISK_VERSION" "$LISK_VERSION".SHA256 &> /dev/null
-
-	echo -e "\nDownloading current Lisk binaries: ""$LISK_VERSION"
-
-	curl --progress-bar -o "$LISK_VERSION" "https://downloads.lisk.io/lisk/$RELEASE/$LISK_VERSION"
-
-	curl -s "https://downloads.lisk.io/lisk/$RELEASE/$LISK_VERSION.SHA256" -o "$LISK_VERSION".SHA256
+	curl -o "$2".SHA256 -s "https://downloads.liskwallet.net/$1/$2.SHA256"
 
 	if [[ "$(uname)" == "Linux" ]]; then
-		SHA256=$(sha256sum -c "$LISK_VERSION".SHA256 | awk '{print $2}')
+		SHA256=$(sha256sum -c "$2".SHA256 | awk '{print $2}')
 	elif [[ "$(uname)" == "Darwin" ]]; then
-		SHA256=$(shasum -a 256 -c "$LISK_VERSION".SHA256 | awk '{print $2}')
+		SHA256=$(shasum -a 256 -c "$2".SHA256 | awk '{print $2}')
 	fi
 
 	if [[ "$SHA256" == "OK" ]]; then
 		echo -e "\nChecksum Passed!"
 	else
 		echo -e "\nChecksum Failed, aborting installation"
-		rm -f "$LISK_VERSION" "$LISK_VERSION".SHA256
+		rm -f "$2" "$2".SHA256
 		exit 0
 	fi
+
+	install_component $1 $2
 }
 
-install_lisk() {
-	echo -e '\nExtracting Lisk binaries to '"$LISK_INSTALL"
+install_component() {
+	echo -e '\nExtracting binaries for '"$2"' to '"$LISK_INSTALL"
 
-	tar -xzf "$LISK_VERSION" -C "$LISK_LOCATION"
-
-	mv "$LISK_LOCATION/$LISK_DIR" "$LISK_INSTALL"
+	tar -xzf "$1" -C "$LISK_INSTALL"
 
 	echo -e "\nCleaning up downloaded files"
-	rm -f "$LISK_VERSION" "$LISK_VERSION".SHA256
+	rm -f "$1" "$1".SHA256
 }
 
 configure_lisk() {
@@ -239,9 +258,11 @@ configure_lisk() {
 	sleep 5 # Allow the DApp password to generate and write back to the config.json
 
 	echo -e "\nStopping Lisk to perform database tuning"
+	# bash lisk.sh <option> <network> <flags>
 	bash lisk.sh stop
 
 	echo -e "\nExecuting database tuning operation"
+	# Tune needs to be refactored to point at new DB data
 	bash tune.sh
 }
 
@@ -269,6 +290,7 @@ cleanup_installation() {
 backup_lisk() {
 	echo -e "\nStopping Lisk to perform a backup"
 	cd "$LISK_INSTALL" || exit 2
+	# Legacy code doesnt accept network flags
 	bash lisk.sh stop
 
 	echo -e "\nCleaning up PM2"
@@ -276,6 +298,7 @@ backup_lisk() {
 
 	echo -e "\nBacking up existing Lisk Folder"
 
+# Accomodate legacy installs here for old/new and upgrade
 	LISK_BACKUP="$LISK_LOCATION"'/backup/lisk-'"$RELEASE"
 	LISK_OLD_PG="$LISK_BACKUP"'/pgsql/'
 	LISK_NEW_PG="$LISK_INSTALL"'/pgsql/'
@@ -291,6 +314,8 @@ backup_lisk() {
 }
 
 start_lisk() { # Parse the various startup flags
+# Remove rebuild option
+# bash lisk.sh <option> <network> <flags>
 	if [[ "$REBUILD" == true ]]; then
 		if [[ "$URL" ]]; then
 			echo -e "\nStarting Lisk with specified snapshot"
@@ -319,6 +344,7 @@ start_lisk() { # Parse the various startup flags
 
 upgrade_lisk() {
 	echo -e "\nRestoring Database to new Lisk Install"
+	# Point me at new data dir
 	mkdir -m700 "$LISK_INSTALL"/pgsql/data
 
 	if [[ "$("$LISK_OLD_PG"/bin/postgres -V)" != "postgres (PostgreSQL) 9.6".* ]]; then
@@ -331,11 +357,13 @@ upgrade_lisk() {
 		# shellcheck disable=SC2129
 		pg_ctl initdb -D "$LISK_NEW_PG"/data &> $LOG_FILE
 		# shellcheck disable=SC2129
-		"$LISK_NEW_PG"/bin/pg_upgrade -b "$LISK_OLD_PG"/bin -B "$LISK_NEW_PG"/bin -d "$LISK_OLD_PG"/data -D "$LISK_NEW_PG"/data &> $LOG_FILE
+		# Check my data dirs for new install location
+		"$LISK_NEW_PG"/bin/pg_upgrade -b "$LISK_OLD_PG"/bin -B "$LISK_NEW_PG"/bin -d "$LISK_OLD_PG"/data -D "$LISK_INSTALL"/data &> $LOG_FILE
 		bash "$LISK_INSTALL"/lisk.sh start_db &> $LOG_FILE
 		bash "$LISK_INSTALL"/analyze_new_cluster.sh &> $LOG_FILE
 		rm -f "$LISK_INSTALL"/*cluster*
 	else
+		# Will not be needed after 0.10.0
 		cp -rf "$LISK_OLD_PG"/data/* "$LISK_NEW_PG"/data/
 	fi
 
@@ -397,8 +425,8 @@ parse_option() {
 	fi
 
 	if [ "$RELEASE" ]; then
-		if [[ "$RELEASE" != test && "$RELEASE" != "main" && "$RELEASE" != "dev" ]]; then
-			echo "-r <test|main|dev>"
+		if [[ "$RELEASE" != test && "$RELEASE" != "main" && "$RELEASE" != "both" ]]; then
+			echo "-r <test|main|both>"
 			usage
 			exit 1
 		fi
@@ -412,11 +440,10 @@ case "$1" in
 	prereq_checks
 	user_prompts
 	ntp_checks
-	download_lisk
-	install_lisk
-	configure_lisk
-	log_rotate
-	start_lisk
+	download_component $FULL_INSTALL_PATH $FULL_INSTALL_TAR 'NeedToPassDescriptiveString'
+	configure_lisk # To refactor
+	log_rotate # Do we need it
+	start_lisk # To refactor
 	;;
 "upgrade")
 	FRESH_INSTALL='false'
@@ -431,7 +458,7 @@ case "$1" in
 *)
 	echo "Error: Unrecognized command."
 	echo ""
-	echo "Available commands are: install upgrade"
+	echo "Available commands are: install upgrade" # Legacy upgrade only
 	usage
 	exit 1
 	;;

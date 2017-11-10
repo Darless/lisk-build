@@ -19,7 +19,7 @@ cd "$(cd -P -- "$(dirname -- "$0")" && pwd -P)" || exit 2
 
 
 ### Variables Definition ######################################################
-
+# TODO: Alot, lets talk about it
 SNAPSHOT_CONFIG="$(pwd)/etc/snapshot.json"
 TARGET_DB_NAME="$(grep "database" "$SNAPSHOT_CONFIG" | cut -f 4 -d '"')"
 LOG_LOCATION="$(grep "logFileName" "$SNAPSHOT_CONFIG" | cut -f 4 -d '"')"

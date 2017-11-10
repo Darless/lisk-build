@@ -34,6 +34,7 @@ elif [ ! -f ./pgsql/data/postgresql.conf ]; then
 	exit 1
 fi
 
+# This data file will be in blockchain.db instead
 update_config() {
 	if [[ "$(uname)" == "Linux" ]]; then
 		sed -i "s#mc#$max_connections#g" ./pgsql/data/postgresql.conf

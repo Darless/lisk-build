@@ -302,13 +302,14 @@ check_pid() {
 }
 
 lisky() {
-	node "$(pwd)/bin/lisky"
+	node "$(pwd)/lisky/bin/lisky"
 }
 
 tail_logs() {
 	tail -f "$LISK_LOGS"
 }
 
+# We need to set network here
 help() {
 	echo -e "\nCommand Options for Lisk.sh"
 	echo -e "\nAll options may be passed [-p <PM2-config.json>]"
@@ -367,6 +368,8 @@ parse_flag() {
 }
 
 # Parses network
+# TODO: Need to eval for lisky, since that doesnt need network
+# TODO: Also eval for non network options to allow passage
 case $2 in
 	"mainnet")
 		NETWORK="mainnet"
@@ -378,13 +381,8 @@ case $2 in
 		PM2_CONFIG="$PM2_TEST_CONFIG"
 		LISK_CONFIG="./testnet/config.json"
 		;;
-	"devnet")
-		NETWORK="devnet"
-		PM2_CONFIG="$PM2_DEV_CONFIG"
-		LISK_CONFIG="./devnet/config.json"
-		;;
 	*)
-		echo "No network specified. Please specify a network: mainnet, testnet, devnet"
+		echo "No network specified. Please specify a network: mainnet, testnet"
 		echo "Exiting..."
 		exit 0
 		;;
